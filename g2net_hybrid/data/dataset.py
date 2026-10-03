@@ -133,3 +133,53 @@ def make_torch_dataset(cache: dict, augment: bool = False):
             }
 
     return CachedDataset()
+
+def build_real_holdout_cache(
+    input_dir,
+    noise_paths,
+    out_dir,
+    name,
+    ext_kwargs=None,
+    n_jobs=1,
+):
+    """
+    Build a real-data evaluation cache using:
+      - all labelled target==1 competition files
+      - only the explicitly supplied held-out target==0 noise files
+
+    The target==0 files used here must NOT have been used to construct
+    injected train/validation samples.
+    """
+    import pandas as pd
+
+    ext_kwargs = ext_kwargs or {}
+
+    df = pd.read_csv(f"{input_dir}/train_labels.csv")
+    df = df[df.target >= 0]
+
+    positive_ids = df[df.target == 1].id.tolist()
+
+    positive_jobs = [
+        (f"{input_dir}/train/{sample_id}.hdf5", 1, ext_kwargs)
+        for sample_id in positive_ids
+    ]
+
+    negative_jobs = [
+        (path, 0, ext_kwargs)
+        for path in noise_paths
+    ]
+
+    jobs = negative_jobs + positive_jobs
+
+    print(
+        f"real holdout: {len(negative_jobs)} negatives, "
+        f"{len(positive_jobs)} positives"
+    )
+
+    _run(
+        _kaggle_worker,
+        jobs,
+        n_jobs,
+        out_dir,
+        name,
+    )

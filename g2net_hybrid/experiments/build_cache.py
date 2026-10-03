@@ -17,7 +17,7 @@ import os
 
 import numpy as np
 
-from data.dataset import build_injected_cache, build_kaggle_cache, build_synthetic_cache
+from data.dataset import build_injected_cache, build_kaggle_cache, build_synthetic_cache, build_real_holdout_cache
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--source", choices=["synthetic", "injected", "real"], default="synthetic")
@@ -50,11 +50,52 @@ elif a.source == "injected":
     assert len(ids) >= 4, "need labelled-noise files (target == 0) to inject into"
     rng = np.random.default_rng(123)
     rng.shuffle(ids)
-    n_val_files = max(1, int(len(ids) * a.val_noise_frac))
-    val_ids, train_ids = ids[:n_val_files], ids[n_val_files:]
-    paths = lambda L: [f"{a.input_dir}/train/{i}.hdf5" for i in L]
-    print(f"{len(train_ids)} train noise files, {len(val_ids)} val noise files (each reused many times)")
-    build_injected_cache(paths(train_ids), a.n_train, 0, a.out, "train", ext, n_jobs=a.n_jobs)
-    build_injected_cache(paths(val_ids), a.n_val, 1, a.out, "val", ext, n_jobs=a.n_jobs)
+
+# --------------------------------------------------
+# Split the REAL NOISE files into:
+#   70% train
+#   15% validation
+#   15% held-out real test
+# --------------------------------------------------
+
+    n_test_files = max(1, int(len(ids) * 0.15))
+    n_val_files = max(1, int(len(ids) * 0.15))
+
+    test_ids = ids[:n_test_files]
+
+    val_start = n_test_files
+    val_end = n_test_files + n_val_files
+
+    val_ids = ids[val_start:val_end]
+    train_ids = ids[val_end:]
+
+    paths = lambda L: [
+        f"{a.input_dir}/train/{i}.hdf5"
+        for i in L
+    ]
+
+    print(
+        f"{len(train_ids)} train noise files, "
+        f"{len(val_ids)} val noise files, "
+        f"{len(test_ids)} held-out test noise files"
+    )
+
+# --------------------------------------------------
+# Injected training set
+# --------------------------------------------------
+
+    build_injected_cache(paths(train_ids),a.n_train,0,a.out,"train",ext,n_jobs=a.n_jobs,)
+
+# --------------------------------------------------
+# Injected validation set
+# --------------------------------------------------
+
+    build_injected_cache(paths(val_ids),a.n_val,1,a.out,"val",ext,n_jobs=a.n_jobs,)
+
+# --------------------------------------------------
+# REAL held-out evaluation
+# --------------------------------------------------
+
+    build_real_holdout_cache(a.input_dir,paths(test_ids),a.out,"real",ext,n_jobs=a.n_jobs,)
 else:
     build_kaggle_cache(a.input_dir, "train", a.out, "real", ext, limit=a.limit, n_jobs=a.n_jobs)
