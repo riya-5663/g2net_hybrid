@@ -1,0 +1,39 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+
+# --- Generated artifacts (can be large; rebuild with experiments/build_cache.py) ---
+cache/
+checkpoints/
+*.npy
+*.npz
+*.pt
+*.pth
+*.ckpt
+*.csv
+
+# --- Raw data / PyFstat output (NOTE: do not ignore `data/` itself, it holds source code) ---
+data/pyfstat_cw/
+*.sft
+*.hdf5
+*.h5
+*.zip
+
+# --- Logs / experiment trackers ---
+wandb/
+lightning_logs/
+*.log
+
+# --- Secrets / local config ---
+kaggle.json
+.env
+
+# --- OS / editor ---
+.DS_Store
+.vscode/
+.idea/

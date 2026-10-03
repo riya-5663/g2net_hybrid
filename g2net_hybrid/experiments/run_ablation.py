@@ -1,0 +1,53 @@
+"""Experiments A (CNN only), B (physics only), C (hybrid) on the same cached data.
+
+  python -m experiments.run_ablation --cache cache --epochs 10 --modes cnn physics hybrid
+"""
+import argparse
+import json
+import os
+
+import numpy as np
+import torch
+
+from data.dataset import load_cache, make_torch_dataset
+from models.fusion import HybridModel
+from physics.features import N_FEATURES
+from training.loop import auc_report, fit, predict
+
+ap = argparse.ArgumentParser()
+ap.add_argument("--cache", default="cache")
+ap.add_argument("--modes", nargs="+", default=["cnn", "physics", "hybrid"])
+ap.add_argument("--model", default="convnext_tiny")
+ap.add_argument("--pretrained", action="store_true")
+ap.add_argument("--epochs", type=int, default=10)
+ap.add_argument("--batch-size", type=int, default=32)
+ap.add_argument("--lr", type=float, default=3e-4)
+ap.add_argument("--num-workers", type=int, default=2)
+ap.add_argument("--real-name", default=None, help="optional extra cache (e.g. 'real') to evaluate each best model on")
+ap.add_argument("--save-dir", default="checkpoints")
+a = ap.parse_args()
+
+train, val = load_cache(a.cache, "train"), load_cache(a.cache, "val")
+train_ds, val_ds = make_torch_dataset(train, augment=True), make_torch_dataset(val)
+
+meta = json.load(open(f"{a.cache}/meta.json")) if os.path.exists(f"{a.cache}/meta.json") else {"ext": {}}
+real = load_cache(a.cache, a.real_name) if a.real_name else None
+device = "cuda" if torch.cuda.is_available() else "cpu"
+os.makedirs(a.save_dir, exist_ok=True)
+results = {}
+for mode in a.modes:
+    print(f"\n=== mode: {mode} ===")
+    model = HybridModel(N_FEATURES, mode, a.model, a.pretrained)
+    model.set_phys_stats(train["feats"])
+    results[mode] = fit(model, train_ds, val_ds, val["strengths"], a.epochs, a.lr, a.batch_size,
+                        num_workers=a.num_workers)
+    torch.save({"state": model.state_dict(), "mode": mode, "model": a.model, "ext": meta["ext"]},
+               f"{a.save_dir}/{mode}.pt")
+    if real is not None:
+        p = predict(model, make_torch_dataset(real), device, num_workers=a.num_workers)
+        results[mode]["real_auc"] = auc_report(real["labels"], p, real["strengths"])["auc"]
+
+print("\n=== summary ===")
+print(json.dumps(results, indent=2))
+if {"cnn", "hybrid"} <= results.keys():
+    print(f"delta AUC (hybrid - cnn): {results['hybrid']['auc'] - results['cnn']['auc']:+.4f}")

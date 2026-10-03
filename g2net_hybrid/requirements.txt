@@ -1,0 +1,10 @@
+numpy
+scipy
+scikit-learn
+pandas
+h5py
+tqdm
+torch
+timm
+# optional, for validating Doppler/trajectories against realistic CW signals
+pyfstat
