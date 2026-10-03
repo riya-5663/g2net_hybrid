@@ -1,7 +1,5 @@
 # g2net_hybrid
 
-Late fusion of a CNN branch (4-channel H1/L1 image, after the 12th-place solution) and a physics
-branch (trajectory power-sum search, after Koda's 1st-place idea) -> MLP -> P(CW).
 
 Run everything from this folder (`g2net_hybrid/`) with `python -m ...`.
 
@@ -22,14 +20,6 @@ experiments/run_ablation.py   experiments A (CNN), B (physics), C (hybrid) + del
 tests/test_physics.py         physics-branch sanity tests
 ```
 
-## Is the code generating data?
-Three sources, chosen with `build_cache --source`:
-* `synthetic` - fully fake (white Gaussian noise + a simple injected line). Pipeline check only.
-* `injected` - **recommended for training**: simulated lines added to REAL noise files
-  (`target == 0` in `train_labels.csv`), split by noise file between train and val.
-  The injected line is still the simplified model in `data/synthetic.py`, not a PyFstat/LAL waveform.
-* `real` - the genuine labelled competition files, no simulation. Use this as the honest check
-  (`run_ablation --real-name real`).
 
 ## Run order
 ```bash
