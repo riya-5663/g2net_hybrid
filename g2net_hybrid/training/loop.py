@@ -45,7 +45,7 @@ def fit(model, train_ds, val_ds, val_strengths, epochs=10, lr=3e-4, batch_size=3
     opt = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-4)
     loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True, num_workers=num_workers, drop_last=True)
     sched = torch.optim.lr_scheduler.OneCycleLR(opt, max_lr=lr, total_steps=epochs * len(loader), pct_start=0.3)
-    scaler = torch.cuda.amp.GradScaler(enabled=device == "cuda")
+    scaler = torch.cuda.amp.GradScaler("cuda", enabled=device == "cuda")
 
     y_val = np.array([int(val_ds[i]["label"]) for i in range(len(val_ds))])
     best = (-1.0, None, None)
